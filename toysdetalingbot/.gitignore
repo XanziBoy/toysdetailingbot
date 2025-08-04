@@ -1,0 +1,12 @@
+.venv/
+.venv2/
+__pycache__/
+*.py[cod]
+*.log
+.env
+*.env
+.vscode/
+.idea/
+.DS_Store
+*.pdf
+*.tmp
