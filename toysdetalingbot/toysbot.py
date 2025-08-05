@@ -114,8 +114,98 @@ def generate_pdf(data: dict) -> bytes:
     elements.append(Spacer(1, 12))
 
     doc.build(elements)
-    return buffer.getvalue()
+    buffer.seek(0)
+    return buffer.read()
 
+
+# === Новый handle_text с сохранением PDF в архив ===
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if not user_states.get(user_id):
+        return
+
+    user_states[user_id] = False
+    text = update.message.text
+    data = parse_text(text)
+    try:
+        pdf = generate_pdf(data)
+
+        brand = data.get("марка", "Авто")
+        plate = data.get("гос_номер", "БезНомера")
+        safe_brand = re.sub(r'[\\/*?:"<>|]', "", brand)
+        safe_plate = re.sub(r'[\\/*?:"<>|]', "", plate)
+        filename = f"заказ наряд {safe_brand} {safe_plate}.pdf"
+
+        folder = "orders"
+        os.makedirs(folder, exist_ok=True)
+        file_path = os.path.join(folder, filename)
+
+        with open(file_path, "wb") as f:
+            f.write(pdf)
+
+        file = io.BytesIO(pdf)
+        file.name = filename
+        file.seek(0)
+
+        await update.message.reply_document(InputFile(file), caption=f"{safe_brand} {safe_plate}")
+    except Exception as e:
+        await update.message.reply_text(f"Ошибка при генерации PDF:\n{str(e)}")
+
+
+# === Архив заказ-нарядов ===
+async def archive_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    folder = "orders"
+    if not os.path.exists(folder):
+        await update.message.reply_text("База заказ-нарядов пуста.")
+        return
+
+    files = sorted(os.listdir(folder))
+    if not files:
+        await update.message.reply_text("База заказ-нарядов пуста.")
+        return
+
+    keyboard = []
+    for file_name in files:
+        keyboard.append([
+            InlineKeyboardButton(f"\ud83d\udcc4 {file_name}", callback_data=f"view|{file_name}"),
+            InlineKeyboardButton("\u274c", callback_data=f"delete|{file_name}")
+        ])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Список заказ-нарядов:", reply_markup=reply_markup)
+
+
+# === Обработка кнопок архива ===
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    action, filename = data.split("|", 1)
+    file_path = os.path.join("orders", filename)
+
+    if not os.path.exists(file_path):
+        await query.edit_message_text("Файл не найден.")
+        return
+
+    if action == "view":
+        await query.message.reply_document(InputFile(file_path))
+    elif action == "delete":
+        os.remove(file_path)
+        await query.edit_message_text(f"Файл `{filename}` удалён.", parse_mode="Markdown")
+
+
+# === Регистрация в main ===
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("bahtiyar", bahtiyar_command))
+    app.add_handler(CommandHandler("archive", archive_command))
+    app.add_handler(CallbackQueryHandler(button_callback))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.run_polling()
+
+
+# === Вспомогательные функции ===
 def parse_text(text: str) -> dict:
     result = {
         "марка": "не указано",
@@ -152,6 +242,7 @@ def parse_text(text: str) -> dict:
                 result[section].append(line)
     return result
 
+
 async def bahtiyar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_states[user_id] = True
@@ -167,83 +258,9 @@ async def bahtiyar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "2. Химчистка"
     )
 
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if not user_states.get(user_id):
-        return
-
-    user_states[user_id] = False
-    text = update.message.text
-    data = parse_text(text)
-    try:
-        pdf = generate_pdf(data)
-
-        brand = data.get("марка", "Авто")
-        plate = data.get("гос_номер", "БезНомера")
-        safe_brand = re.sub(r'[\\/*?:"<>|]', "", brand)
-        safe_plate = re.sub(r'[\\/*?:"<>|]', "", plate)
-        filename = f"заказ наряд {safe_brand} {safe_plate}.pdf"
-
-        folder = "orders"
-        os.makedirs(folder, exist_ok=True)
-        file_path = os.path.join(folder, filename)
-
-        with open(file_path, "wb") as f:
-            f.write(pdf)
-
-        await update.message.reply_document(InputFile(file_path))
-    except Exception as e:
-        await update.message.reply_text(f"Ошибка при генерации PDF:\n{str(e)}")
-
-async def archive_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    folder = "orders"
-    if not os.path.exists(folder):
-        await update.message.reply_text("База заказ-нарядов пуста.")
-        return
-
-    files = sorted(os.listdir(folder))
-    if not files:
-        await update.message.reply_text("База заказ-нарядов пуста.")
-        return
-
-    keyboard = []
-    for file_name in files:
-        keyboard.append([
-            InlineKeyboardButton(f"\ud83d\udcc4 {file_name}", callback_data=f"view|{file_name}"),
-            InlineKeyboardButton("\u274c", callback_data=f"delete|{file_name}")
-        ])
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Список заказ-нарядов:", reply_markup=reply_markup)
-
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-
-    action, filename = data.split("|", 1)
-    file_path = os.path.join("orders", filename)
-
-    if not os.path.exists(file_path):
-        await query.edit_message_text("Файл не найден.")
-        return
-
-    if action == "view":
-        await query.message.reply_document(InputFile(file_path))
-    elif action == "delete":
-        os.remove(file_path)
-        await query.edit_message_text(f"Файл `{filename}` удалён.", parse_mode="Markdown")
-
-def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("bahtiyar", bahtiyar_command))
-    app.add_handler(CommandHandler("archive", archive_command))
-    app.add_handler(CallbackQueryHandler(button_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.run_polling()
-
 if __name__ == '__main__':
     main()
+
 
 
 
