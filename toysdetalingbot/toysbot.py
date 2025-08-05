@@ -237,7 +237,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("bahtiyar", bahtiyar_command))
-    app.add_handler(CommandHandler("архив", archive_command))
+    app.add_handler(CommandHandler("archive", archive_command))
     app.add_handler(CallbackQueryHandler(button_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.run_polling()
