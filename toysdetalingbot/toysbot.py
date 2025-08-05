@@ -21,7 +21,7 @@ pdfmetrics.registerFont(TTFont("Cyrillic", "DejaVuLGCSans.ttf"))
 pdfmetrics.registerFont(TTFont("Cyrillic-Bold", "DejaVuLGCSans-Bold.ttf"))
 
 # === Токен ===
-BOT_TOKEN = "8369046593:AAEAZB7dHaYBecChetEs9JzSY1ZYSYSNe60"
+BOT_TOKEN = "8369046593:AAETwJVlMwOyNIX7AM05FqFt5cN1kCif_o8"
 
 # === Генерация PDF ===
 def generate_pdf(data: dict) -> bytes:
