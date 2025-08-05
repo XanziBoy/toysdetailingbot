@@ -22,7 +22,7 @@ pdfmetrics.registerFont(TTFont("Cyrillic", "DejaVuLGCSans.ttf"))
 pdfmetrics.registerFont(TTFont("Cyrillic-Bold", "DejaVuLGCSans-Bold.ttf"))
 
 # === Токен ===
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+BOT_TOKEN = "8369046593:AAETwJVlMwOyNIX7AM05FqFt5cN1kCif_o8"
 
 # === Состояние пользователей ===
 user_states = {}
