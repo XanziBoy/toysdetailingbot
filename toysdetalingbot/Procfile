@@ -1,1 +1,1 @@
-start: python toysbot.py
+worker: python main.py
