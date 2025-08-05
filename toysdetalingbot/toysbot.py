@@ -1,7 +1,7 @@
 import logging
 import io
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
@@ -23,6 +23,9 @@ pdfmetrics.registerFont(TTFont("Cyrillic-Bold", "DejaVuLGCSans-Bold.ttf"))
 # === Токен ===
 BOT_TOKEN = "8369046593:AAETwJVlMwOyNIX7AM05FqFt5cN1kCif_o8"
 
+# === Состояние пользователей ===
+user_states = {}
+
 # === Генерация PDF ===
 def generate_pdf(data: dict) -> bytes:
     buffer = io.BytesIO()
@@ -33,14 +36,12 @@ def generate_pdf(data: dict) -> bytes:
     header_style = ParagraphStyle(name="Header", fontName="Cyrillic-Bold", fontSize=12, leading=14)
     custom_normal = ParagraphStyle(name="CustomNormal", fontName="Cyrillic", fontSize=10, leading=12)
 
-    # Логотип
     logo_path = "images.png"
     if os.path.exists(logo_path):
         logo = Image(logo_path, width=50, height=50)
         elements.append(logo)
         elements.append(Spacer(1, 8))
 
-    # Шапка
     elements.append(Paragraph('<b>ООО "Детейлинг Тойз"</b>', header_style))
     elements.append(Paragraph('г. Москва, ул. Мельникова д. 5', custom_normal))
     elements.append(Paragraph('тел.: +7 (967) 089-62-51', custom_normal))
@@ -154,6 +155,8 @@ def parse_text(text: str) -> dict:
 
 # === Telegram Bot Handlers ===
 async def bahtiyar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_states[user_id] = True
     await update.message.reply_text(
         "Готов собрать заказ-наряд.\n"
         "Просто пришлите данные в таком виде:\n\n"
@@ -168,6 +171,11 @@ async def bahtiyar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if not user_states.get(user_id):
+        return
+
+    user_states[user_id] = False
     text = update.message.text
     data = parse_text(text)
     try:
@@ -179,15 +187,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Ошибка при генерации PDF:\n{str(e)}")
 
 
-# === Main ===
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("bahtiyar", bahtiyar_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.run_polling()
 
+
 if __name__ == '__main__':
     main()
+
 
 
 
